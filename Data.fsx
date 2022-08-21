@@ -9,18 +9,28 @@ let ws = spaces // skips any whitespace
 let str_ws s = pstring s >>. ws
 
 
+type BinaryOperator =
+    | Add
+    | Sub
+    | Mul
+    | Div
+    | Pow
+    | Eql
+
+type UnaryOperator =
+    | Neg
+    | Exp
+    | Log
+
+type Operator<'a> = {token:string;op:'a}
+
+
 type MathExpression =
     | Number of float
-    | Add of MathExpression * MathExpression
-    | Sub of MathExpression * MathExpression
-    | Mul of MathExpression * MathExpression
-    | Div of MathExpression * MathExpression
-    | Pow of MathExpression * MathExpression
-    | Neg of MathExpression
-    | Exp of MathExpression
-    | Log of MathExpression
+    | Bin of MathExpression * Operator<BinaryOperator> * MathExpression
+    | Una of MathExpression * Operator<UnaryOperator>
     | Invalid of string
-    | Equal of MathExpression * MathExpression
+
 // we calculate with double precision floats
 let number = pfloat .>> ws |>> Number
 
@@ -32,22 +42,32 @@ opp.TermParser <- number <|> between (str_ws "(") (str_ws ")") expr
 // operator definitions follow the schema
 // operator type, string, trailing whitespace parser, precedence, associativity, function to apply
 
-opp.AddOperator(InfixOperator("+", ws, 1, Associativity.Left, fun x y -> Add (x,y)))
-opp.AddOperator(InfixOperator("-", ws, 1, Associativity.Left, fun x y -> Sub(x,y)))
-opp.AddOperator(InfixOperator("*", ws, 2, Associativity.Left, fun x y -> Mul (x,y)))
-opp.AddOperator(InfixOperator("/", ws, 2, Associativity.Left, fun x y -> Div (x,y)))
-opp.AddOperator(InfixOperator("^", ws, 3, Associativity.Right, fun x y -> Pow(x, y)))
-opp.AddOperator(PrefixOperator("-", ws, 4, true, fun x -> Neg(x)))
+let add = {token="+";op=Add}
+let sub = {token="-";op=Sub}
+let mul = {token="*";op=Mul}
+let div = {token="/";op=Div}
+let pow = {token="^";op=Pow}
+let neg = {token="-";op=Neg}
+let eql = {token="=";op=Eql}
+let log = {token="log";op=Log}
+let exp = {token="exp";op=Exp}
 
-opp.AddOperator(InfixOperator("=", ws, 5, Associativity.None, fun x y -> Equal(x,y)))
+opp.AddOperator(InfixOperator("+", ws, 2, Associativity.Left, fun x y -> Bin(x,add,y)))
+opp.AddOperator(InfixOperator("-", ws, 2, Associativity.Left, fun x y -> Bin(x, sub,y)))
+opp.AddOperator(InfixOperator("*", ws, 3, Associativity.Left, fun x y -> Bin(x, mul,y)))
+opp.AddOperator(InfixOperator("/", ws, 3, Associativity.Left, fun x y -> Bin(x, div,y)))
+opp.AddOperator(InfixOperator("^", ws, 4, Associativity.Right, fun x y -> Bin(x,pow,y)))
+opp.AddOperator(PrefixOperator("-", ws, 5, true, fun x -> Una(x,neg)))
+
+opp.AddOperator(InfixOperator("=", ws, 1, Associativity.Left, fun x y -> Bin(x,eql,y)))
 
 // we also want to accept the operators "exp" and "log", but we don't want to accept
 // expressions like "logexp" 2, so we require that non-symbolic operators are not
 // followed by letters
 
 let ws1 = nextCharSatisfiesNot isLetter >>. ws
-opp.AddOperator(PrefixOperator("log", ws1, 4, true, fun x -> Log x))
-opp.AddOperator(PrefixOperator("exp", ws1, 4, true, fun x -> Exp x))
+opp.AddOperator(PrefixOperator("log", ws1, 5, true, fun x -> Una(x,log)))
+opp.AddOperator(PrefixOperator("exp", ws1, 5, true, fun x -> Una(x,exp)))
 
 let completeExpression = ws >>. expr .>> eof // we append the eof parser to make
                                             // sure all input is consumed
@@ -63,37 +83,71 @@ let getTree  s=
 
 getTree "(1+2)*3" |> printfn "%O"
 
+type ExpressionResult =
+    | EqualResult of float * float * bool
+    | MathResult of float
+
 let rec doMath tree =
+
+    let get x =
+        match doMath x with
+        | MathResult v -> v
+        | _ -> nan
+
     match tree with
-    | Number n -> n
-    | Mul (x, y) -> doMath x * doMath y
-    | Add (x,y) -> doMath x + doMath y
-    | Invalid msg -> nan
-    | Div (x,y) -> doMath x / doMath y
-    | Sub (x,y) -> doMath x - doMath y
-    | Exp x -> doMath x |> System.Math.Exp
-    | Log x -> doMath x |> System.Math.Log
-    | Neg x -> -(doMath x)
-    | Pow (x,y) -> System.Math.Pow(doMath x, doMath y)
+    | Number n -> MathResult n
+    | Una (x,o) -> 
+        match o.op with
+        | Neg -> MathResult(-(get x))
+        | Log -> MathResult(get x |> System.Math.Log)
+        | Exp -> MathResult (Math.Exp(get x))
+    | Bin (x, o,y) ->
+        match o.op with
+        | Mul -> MathResult(get x * get y)
+        | Add -> MathResult(get x + get y)
+        | Div -> MathResult(get x / get y)
+        | Sub -> MathResult(get x - get y)
+        | Pow -> MathResult(System.Math.Pow(get x, get y))
+        | Eql -> 
+            let v1 = get x
+            let v2 = get y
+            EqualResult (v1, v2, v1 = v2)
+    | Invalid _ -> MathResult nan
+    
 
 
 let rec displayTree tree =
     match tree with
     | Number n -> sprintf "%g" n
-    | Mul (x,y) -> sprintf "(%s*%s)" (displayTree x) (displayTree y)
-    | Add (x,y) -> sprintf "(%s+%s)" (displayTree x) (displayTree y)
+    | Bin (x,o,y) -> 
+        sprintf "(%s%s%s)" (displayTree x) o.token (displayTree y)
+    | Una (x,o) ->
+        sprintf "%s%s" o.token (displayTree x)
     | Invalid msg -> msg
-    | Div (x,y) -> sprintf "(%s/%s)" (displayTree x) (displayTree y)
-    | Sub (x,y) -> sprintf "(%s-%s)" (displayTree x) (displayTree y)
-    | Exp x -> sprintf "exp(%s)" (displayTree x)
-    | Log x -> sprintf "log(%s)" (displayTree x)
-    | Neg x -> sprintf "-%s" (displayTree x)
-    | Pow (x,y) -> sprintf "(%s)^(%s)" (displayTree x) (displayTree y)
 
 let example1 = "(-1+2)*10/2^2=4"
 getTree example1 |> printfn "%O"
-getTree example1 |> doMath |> printfn "%f"
+getTree example1 |> doMath |> printfn "%O"
 getTree example1 |> displayTree |> printfn "%s"
+
+let rec complexify tree =
+    let random = Random()
+    match tree with
+    | Una (x,o) -> Una (complexify x, o)
+    | Bin (x,o,y) -> 
+        match o.op with
+        | Mul -> 
+            let value = float(random.Next(-100,100))
+            Bin(Number value, mul, Bin(Number value, div, Bin (complexify x, o, complexify y)))
+        | _ -> Bin (complexify x, o, complexify y)
+    | Invalid _ -> tree
+    | Number _ -> tree
+
+let example2 = "(-1+2)*10/2^2=2.5"
+
+getTree example1 |> complexify |> displayTree |> printfn "%s"
+getTree example2 |> complexify |> doMath |> printfn "%O"
+getTree example2 |> doMath |> printfn "%O"
 
 
 // let equals expectedValue r =
