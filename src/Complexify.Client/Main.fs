@@ -51,7 +51,7 @@ let update message model =
         { model with error = None }, Cmd.none
     | InputChanged (s, i) ->
         let result = getComplex s i
-        { model with mathOutput = result }, Cmd.none
+        { model with mathOutput = result; compCount = i; mathInput = s; }, Cmd.none
 
 /// Connects the routing system to the Elmish application.
 let router = Router.infer SetPage (fun model -> model.page)

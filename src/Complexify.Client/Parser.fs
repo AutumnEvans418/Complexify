@@ -37,8 +37,12 @@ let number = pfloat .>> ws |>> Number
 // we set up an operator precedence parser for parsing the arithmetic expressions
 let opp = new OperatorPrecedenceParser<MathExpression,unit,unit>()
 let expr = opp.ExpressionParser
-opp.TermParser <- number <|> between (str_ws "(") (str_ws ")") expr
+opp.TermParser <- 
+    number 
+    <|> between (str_ws "(") (str_ws ")") expr
+    <|> between (str_ws "[") (str_ws "]") expr
 
+//todo: add brackets, square root
 // operator definitions follow the schema
 // operator type, string, trailing whitespace parser, precedence, associativity, function to apply
 
@@ -66,6 +70,7 @@ opp.AddOperator(InfixOperator("=", ws, 1, Associativity.Left, fun x y -> Bin(x,e
 // followed by letters
 
 let ws1 = nextCharSatisfiesNot isLetter >>. ws
+
 opp.AddOperator(PrefixOperator("log", ws1, 5, true, fun x -> Una(x,log)))
 opp.AddOperator(PrefixOperator("exp", ws1, 5, true, fun x -> Una(x,exp)))
 
