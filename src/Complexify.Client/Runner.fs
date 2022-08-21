@@ -32,7 +32,7 @@ let rec doMath tree =
             let v2 = get y
             EqualResult (v1, v2, v1 = v2)
     | Invalid _ -> MathResult nan
-    
+    | Id _ -> MathResult nan
 
 
 let rec displayTree tree =
@@ -46,6 +46,7 @@ let rec displayTree tree =
     | Una (x,o) ->
         sprintf "(%s(%s))" o.token (displayTree x)
     | Invalid msg -> msg
+    | Id str -> str
 
 
 let private complexExp v o1 o2 exp =
@@ -72,6 +73,7 @@ let rec complexify tree =
         
     | Invalid _ -> tree
     | Number _ -> tree
+    | Id _ -> tree
 
 let rec complexifyRepeat (iter:int) (tree:MathExpression) =
     if iter > 0 then complexifyRepeat (iter-1) (complexify tree)

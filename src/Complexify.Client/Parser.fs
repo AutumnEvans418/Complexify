@@ -26,10 +26,18 @@ type Operator<'a> = {token:string;op:'a;wrap:bool}
 
 
 type MathExpression =
+    | Id of string
     | Number of float
     | Bin of MathExpression * Operator<BinaryOperator> * MathExpression
     | Una of MathExpression * Operator<UnaryOperator>
     | Invalid of string
+
+let identifier =
+    let isIdentifierFirstChar c = isLetter c || c = '_'
+    let isIdentifierChar c = isLetter c || isDigit c || c = '_'
+
+    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier"
+    .>> ws |>> Id
 
 // we calculate with double precision floats
 let number = pfloat .>> ws |>> Number
@@ -41,6 +49,7 @@ opp.TermParser <-
     number 
     <|> between (str_ws "(") (str_ws ")") expr
     <|> between (str_ws "[") (str_ws "]") expr
+    <|> identifier
 
 //todo: add brackets, square root
 // operator definitions follow the schema
