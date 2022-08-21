@@ -34,6 +34,10 @@ let rec doMath tree =
     | Invalid _ -> MathResult nan
     | Id _ -> MathResult nan
 
+let displayResult result =
+    match result with
+    | EqualResult (x,y,b) -> sprintf "%b" b
+    | MathResult v -> sprintf "%g" v
 
 let rec displayTree tree =
     match tree with
@@ -52,23 +56,48 @@ let rec displayTree tree =
 let private complexExp v o1 o2 exp =
     Bin(Bin(v, o1, exp), o2, v)
 
+
+let private complexExp2 v v1 o1 o2 exp =
+    Bin(Bin(v, o1, exp), o2, v1)
+
 let private complexExpU o1 o2 exp =
     Una(Una(exp, o2), o1)
 
+let rec private getVariables tree list =
+    match tree with
+    | Id a -> a::list
+    | Number _ -> list
+    | Invalid _ -> list
+    | Bin (x,_,y) -> getVariables x list |> List.append (getVariables y list)
+    | Una (x, _) -> getVariables x list
+
 let rec complexify tree =
     let random = Random()
+    let variables = getVariables tree []
     match tree with
     | Una (x,o) -> Una (complexify x, o)
     | Bin (x,o,y) -> 
         match o.op with
         | Eql -> Bin (complexify x, o, y)
         | _ ->
-            let value() = Number (float(random.Next(0,100)))
-
+            
+            let value() = 
+                let num = Number (float(random.Next(1,100)))
+                if variables.Length > 0 then
+                    [num;Id (variables |> List.item (random.Next(0, variables.Length)))] |> List.item (random.Next(0, 2))
+                else
+                    num
             let org = Bin(x,o,y)
+            
+            let v = float(random.Next(0,100))
+            let options = [
+                complexExp (value()) mul div org     
+                complexExp (value()) add sub org
+                //complexExp2 (Number v) (Number (1./v)) pow pow org
+            ]
             //Bin(Bin(value, mul, Bin(x,o,y)), div, value)
-            complexExp (value()) mul div org 
-            |> complexExp (value()) add sub
+            options |> List.item (random.Next(0, options.Length))
+            
             
         
     | Invalid _ -> tree

@@ -7,8 +7,14 @@
                 <label for="mathInput">Equation</label>
                 <input id="mathInput" bind="${MathInput}" placeholder="2+2=4" />
                 <label for="compCount">Complexity</label>
-                <input id="compCount" type="number" bind="${CompCount}" placeholder="1" />
-                <p class="output">${MathOutput}</p>
+                <input id="compCount" type="range" step="1" min="0" max="100" bind="${CompCount}" placeholder="1" />
+                <div class="output">
+                    <label>New Equation</label>
+                    <p>${MathOutput}</p>
+                    <label>Evaluation Result</label>
+                    <p>${EvalResult}</p>
+                </div>
+                
             </div>
         </section>
     </div>

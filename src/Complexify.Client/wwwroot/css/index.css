@@ -1,5 +1,6 @@
 html, body {
   height: 100%;
+  width: 100%;
 }
 
 h1 {
@@ -34,13 +35,10 @@ body {
     flex-direction: column;
     -webkit-align-items: center;
     align-items: center;
-    -webkit-justify-content: center;
-    justify-content: center;
-    
 }
 
 #main {
-  flex: 1;
+   width: 100%;
 }
 
 #main > .columns {

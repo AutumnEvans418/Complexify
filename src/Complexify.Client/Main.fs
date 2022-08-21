@@ -15,15 +15,22 @@ type Model =
         mathInput:string
         compCount: int
         mathOutput:string
+        mathCalculation:string
     }
 
-let getComplex s c = getTree s |> complexifyRepeat c |> displayTree
+let getComplex s c = 
+    let tree = getTree s |> complexifyRepeat c
+    let compValue = tree |> displayTree
+    let result = tree |> Runner.doMath |> displayResult
+    (compValue, result)
 
 let initModel =
+    let comp, v = getComplex "2+2" 3
     {
         compCount = 3
         mathInput = "2+2"
-        mathOutput = getComplex "2+2" 3
+        mathOutput = comp
+        mathCalculation = v
     }
 
 /// The Elmish application's update messages.
@@ -33,8 +40,8 @@ type Message =
 let update message model =
     match message with
     | InputChanged (s, i) ->
-        let result = getComplex s i
-        { model with mathOutput = result; compCount = i; mathInput = s; }, Cmd.none
+        let result, v = getComplex s i
+        { model with mathOutput = result; compCount = i; mathInput = s; mathCalculation = v }, Cmd.none
 
 /// Connects the routing system to the Elmish application.
 //let router = Router.infer SetPage (fun model -> model.page)
@@ -45,7 +52,8 @@ let homePage model dispatch =
     Main()
         .MathInput(model.mathInput, fun s -> dispatch (InputChanged (s, model.compCount)))
         .MathOutput(model.mathOutput)
-        .CompCount(model.compCount, fun s -> dispatch (InputChanged (model.mathInput, int(s))))
+        .CompCount(model.compCount |> string, fun s -> dispatch (InputChanged (model.mathInput, int(s))))
+        .EvalResult(model.mathCalculation)
         .Elt()
 
 let view model dispatch =
