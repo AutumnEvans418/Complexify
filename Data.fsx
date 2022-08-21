@@ -22,7 +22,7 @@ type UnaryOperator =
     | Exp
     | Log
 
-type Operator<'a> = {token:string;op:'a}
+type Operator<'a> = {token:string;op:'a;wrap:bool}
 
 
 type MathExpression =
@@ -42,15 +42,15 @@ opp.TermParser <- number <|> between (str_ws "(") (str_ws ")") expr
 // operator definitions follow the schema
 // operator type, string, trailing whitespace parser, precedence, associativity, function to apply
 
-let add = {token="+";op=Add}
-let sub = {token="-";op=Sub}
-let mul = {token="*";op=Mul}
-let div = {token="/";op=Div}
-let pow = {token="^";op=Pow}
-let neg = {token="-";op=Neg}
-let eql = {token="=";op=Eql}
-let log = {token="log";op=Log}
-let exp = {token="exp";op=Exp}
+let add = {token="+";op=Add;wrap=true}
+let sub = {token="-";op=Sub;wrap=true}
+let mul = {token="*";op=Mul;wrap=true}
+let div = {token="/";op=Div;wrap=true}
+let pow = {token="^";op=Pow;wrap=true}
+let neg =  {token="-";op=Neg;wrap=true}
+let eql = {token="=";op=Eql;wrap=false}
+let log =  {token="log";op=Log;wrap=true}
+let exp =  {token="exp";op=Exp;wrap=true}
 
 opp.AddOperator(InfixOperator("+", ws, 2, Associativity.Left, fun x y -> Bin(x,add,y)))
 opp.AddOperator(InfixOperator("-", ws, 2, Associativity.Left, fun x y -> Bin(x, sub,y)))
@@ -120,9 +120,17 @@ let rec displayTree tree =
     match tree with
     | Number n -> sprintf "%g" n
     | Bin (x,o,y) -> 
-        sprintf "(%s%s%s)" (displayTree x) o.token (displayTree y)
+        if o.wrap then
+            sprintf "(%s%s%s)" (displayTree x) o.token (displayTree y)
+        else
+            sprintf "%s%s%s" (displayTree x) o.token (displayTree y)
+
     | Una (x,o) ->
-        sprintf "%s%s" o.token (displayTree x)
+        if o.wrap then
+            sprintf "%s(%s)" o.token (displayTree x)
+        else
+            sprintf "%s%s" o.token (displayTree x)
+
     | Invalid msg -> msg
 
 let example1 = "(-1+2)*10/2^2=4"
@@ -130,25 +138,52 @@ getTree example1 |> printfn "%O"
 getTree example1 |> doMath |> printfn "%O"
 getTree example1 |> displayTree |> printfn "%s"
 
+let complexExp v o1 o2 exp =
+    Bin(Bin(v, o1, exp), o2, v)
+
+let complexExpU o1 o2 exp =
+    Una(Una(exp, o2), o1)
+
 let rec complexify tree =
     let random = Random()
     match tree with
     | Una (x,o) -> Una (complexify x, o)
     | Bin (x,o,y) -> 
         match o.op with
-        | Mul -> 
-            let value = float(random.Next(-100,100))
-            Bin(Number value, mul, Bin(Number value, div, Bin (complexify x, o, complexify y)))
-        | _ -> Bin (complexify x, o, complexify y)
+        | Eql -> Bin (complexify x, o, y)
+        | _ ->
+            let value() = Number (float(random.Next(-100,100)))
+
+            let org = Bin(x,o,y)
+            //Bin(Bin(value, mul, Bin(x,o,y)), div, value)
+            complexExp (value()) mul div org 
+            |> complexExp (value()) add sub
+            |> complexExpU log exp
+        
     | Invalid _ -> tree
     | Number _ -> tree
 
-let example2 = "(-1+2)*10/2^2=2.5"
+let example2 = "1+2"
 
-getTree example1 |> complexify |> displayTree |> printfn "%s"
+getTree example2 |> complexify |> displayTree |> printfn "%s"
 getTree example2 |> complexify |> doMath |> printfn "%O"
 getTree example2 |> doMath |> printfn "%O"
 
+let examples = [
+    "1+2=3"
+    "1+2*2=5"
+    "(1+2)*2=6"
+    "1+2/2=2"
+    "2^3+1=9"
+    "9-3+1=7"
+    "(10*(1+2*2))/10=5"
+    "5*(1+2*2)/5=5"
+]
+
+for e in examples do
+    getTree e |> doMath |> printfn "%O"
+    getTree e |> complexify |> displayTree |> printfn "%s"
+    getTree e |> complexify |> doMath |> printfn "%O"
 
 // let equals expectedValue r =
 //     match r with
