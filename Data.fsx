@@ -158,7 +158,7 @@ let rec complexify tree =
             //Bin(Bin(value, mul, Bin(x,o,y)), div, value)
             complexExp (value()) mul div org 
             |> complexExp (value()) add sub
-            |> complexExpU log exp
+            
         
     | Invalid _ -> tree
     | Number _ -> tree
