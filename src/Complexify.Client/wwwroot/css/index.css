@@ -2,9 +2,41 @@ html, body {
   height: 100%;
 }
 
+h1 {
+    text-align: center
+}
+
+input {
+    padding: 10px;
+    font-size: 1.2rem;
+    -moz-border-radius: 10px;
+    -webkit-border-radius: 10px;
+    border-radius: 10px;
+    width: 100%;
+    margin: 10px
+}
+
+.subheader {
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+.output {
+    margin-top: 50px;
+    font-size: 1.5rem;
+    -ms-word-wrap: anywhere;
+    word-wrap: anywhere;
+    text-align: center
+}
+
 body {
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    
 }
 
 #main {
